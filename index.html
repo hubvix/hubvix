@@ -373,274 +373,373 @@
         </div>
     </div>
 <script>
-    // DOM Elements
-    const uploadBtn = document.getElementById('uploadBtn');
-    const uploadModal = document.getElementById('uploadModal');
-    const closeModal = document.getElementById('closeModal');
-    const uploadForm = document.getElementById('uploadForm');
-    const videoInput = document.getElementById('videoInput');
-    const videoContainer = document.getElementById('videoContainer');
-    const videoPlayer = document.getElementById('videoPlayer');
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    const muteBtn = document.getElementById('muteBtn');
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const volumeLevel = document.getElementById('volumeLevel');
-    
-    // Validación de tipos de archivo permitidos
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
-    const maxFileSize = 100 * 1024 * 1024; // 100MB en bytes
-    
-    // Upload Modal Functionality
+ // DOM Elements - Agregamos verificación de existencia de elementos
+const elements = {
+    uploadBtn: 'uploadBtn',
+    uploadModal: 'uploadModal',
+    closeModal: 'closeModal',
+    uploadForm: 'uploadForm',
+    videoInput: 'videoInput',
+    videoContainer: 'videoContainer',
+    videoPlayer: 'videoPlayer',
+    playPauseBtn: 'playPauseBtn',
+    muteBtn: 'muteBtn',
+    fullscreenBtn: 'fullscreenBtn',
+    progressContainer: 'progressContainer',
+    progressBar: 'progressBar',
+    loadingIndicator: 'loadingIndicator',
+    volumeLevel: 'volumeLevel'
+};
+
+// Verificación de elementos DOM
+const domElements = {};
+let hasError = false;
+
+for (const [key, id] of Object.entries(elements)) {
+    const element = document.getElementById(id);
+    if (!element) {
+        console.error(`Error: No se encontró el elemento con id "${id}"`);
+        hasError = true;
+    }
+    domElements[key] = element;
+}
+
+if (hasError) {
+    throw new Error('Faltan elementos DOM necesarios. Revisa la consola para más detalles.');
+}
+
+// Destructuring de elementos DOM verificados
+const {
+    uploadBtn,
+    uploadModal,
+    closeModal,
+    uploadForm,
+    videoInput,
+    videoContainer,
+    videoPlayer,
+    playPauseBtn,
+    muteBtn,
+    fullscreenBtn,
+    progressContainer,
+    progressBar,
+    loadingIndicator,
+    volumeLevel
+} = domElements;
+
+// Constantes y configuración
+const CONFIG = Object.freeze({
+    allowedTypes: ['video/mp4', 'video/webm', 'video/ogg'],
+    maxFileSize: 100 * 1024 * 1024, // 100MB en bytes
+    uploadTimeout: 2000,
+    successMessageDuration: 1500,
+    icons: {
+        play: '<i class="lucide-play"></i>',
+        pause: '<i class="lucide-pause"></i>',
+        volumeOn: '<i class="lucide-volume-2"></i>',
+        volumeOff: '<i class="lucide-volume-x"></i>',
+        maximize: '<i class="lucide-maximize"></i>',
+        minimize: '<i class="lucide-minimize"></i>'
+    }
+});
+
+// Estado global del reproductor
+const playerState = {
+    lastVolume: 1,
+    isUploading: false
+};
+
+// Manejo de errores mejorado
+class VideoPlayerError extends Error {
+    constructor(message, type) {
+        super(message);
+        this.name = 'VideoPlayerError';
+        this.type = type;
+    }
+}
+
+function handleError(error, userMessage) {
+    console.error(`${error.name}: ${error.message}`);
+    if (userMessage) {
+        alert(userMessage);
+    }
+}
+
+// Upload Modal Functionality
+function initializeUploadModal() {
     uploadBtn.addEventListener('click', () => {
-        uploadModal.classList.add('active');
+        if (!playerState.isUploading) {
+            uploadModal.classList.add('active');
+        }
     });
-    
+
     closeModal.addEventListener('click', () => {
         uploadModal.classList.remove('active');
         resetUploadForm();
     });
-    
+
     uploadModal.addEventListener('click', (e) => {
         if (e.target === uploadModal) {
             uploadModal.classList.remove('active');
             resetUploadForm();
         }
     });
-    
-    function resetUploadForm() {
+}
+
+function resetUploadForm() {
+    try {
         uploadForm.reset();
         const submitButton = uploadForm.querySelector('.submit-button');
-        submitButton.textContent = 'Publicar';
-        submitButton.disabled = false;
+        if (submitButton) {
+            submitButton.textContent = 'Publicar';
+            submitButton.disabled = false;
+        }
         if (videoPlayer.src) {
             URL.revokeObjectURL(videoPlayer.src);
             videoPlayer.src = '';
         }
+        playerState.isUploading = false;
+    } catch (error) {
+        handleError(error, 'Error al restablecer el formulario');
     }
+}
+
+// Validación de archivos mejorada
+async function validateVideoFile(file) {
+    if (!file) {
+        throw new VideoPlayerError('No se seleccionó ningún archivo', 'validation');
+    }
+
+    if (!CONFIG.allowedTypes.includes(file.type)) {
+        throw new VideoPlayerError(
+            'Tipo de archivo no permitido',
+            'validation'
+        );
+    }
+
+    if (file.size > CONFIG.maxFileSize) {
+        throw new VideoPlayerError(
+            'Archivo demasiado grande',
+            'validation'
+        );
+    }
+
+    return true;
+}
+
+// Manejo de archivos mejorado
+async function handleFileSelect(e) {
+    const file = e.target.files[0];
+    const submitButton = uploadForm.querySelector('.submit-button');
+
+    try {
+        await validateVideoFile(file);
+        const videoURL = URL.createObjectURL(file);
+        videoPlayer.src = videoURL;
+
+        // Verificar que el video se puede reproducir
+        await new Promise((resolve, reject) => {
+            videoPlayer.addEventListener('loadedmetadata', resolve, { once: true });
+            videoPlayer.addEventListener('error', reject, { once: true });
+        });
+
+        await videoPlayer.play();
+        videoPlayer.pause();
+        if (submitButton) submitButton.disabled = false;
+    } catch (error) {
+        handleError(
+            error,
+            'Error al cargar el video. Por favor, verifica el archivo e intenta nuevamente.'
+        );
+        resetUploadForm();
+    }
+}
+
+// Manejo del formulario mejorado
+async function handleFormSubmit(e) {
+    e.preventDefault();
     
-    // Mejorada la validación y manejo de archivos
-    videoInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        const submitButton = uploadForm.querySelector('.submit-button');
+    if (playerState.isUploading) return;
+    
+    const submitButton = uploadForm.querySelector('.submit-button');
+    const file = videoInput.files[0];
+
+    try {
+        await validateVideoFile(file);
         
-        if (!file) {
-            return;
+        playerState.isUploading = true;
+        if (submitButton) {
+            submitButton.textContent = 'Subiendo...';
+            submitButton.disabled = true;
         }
-    
-        // Validar tipo de archivo
-        if (!allowedTypes.includes(file.type)) {
-            alert('Por favor, sube solo archivos de video en formato MP4, WebM u OGG.');
+
+        // Simulación de subida
+        await new Promise(resolve => setTimeout(resolve, CONFIG.uploadTimeout));
+        
+        if (submitButton) submitButton.textContent = '¡Publicado!';
+        
+        setTimeout(() => {
+            uploadModal.classList.remove('active');
             resetUploadForm();
-            return;
-        }
-    
-        // Validar tamaño
-        if (file.size > maxFileSize) {
-            alert('El archivo es demasiado grande. El tamaño máximo permitido es 100MB.');
-            resetUploadForm();
-            return;
-        }
-    
-        try {
-            // Crear URL temporal para previsualización
-            const videoURL = URL.createObjectURL(file);
-            videoPlayer.src = videoURL;
-            
-            // Esperar a que el video se pueda reproducir
-            await videoPlayer.play();
-            videoPlayer.pause();
-            submitButton.disabled = false;
-        } catch (error) {
-            console.error('Error al cargar el video:', error);
-            alert('Error al cargar el video. Por favor, intenta con otro archivo.');
-            resetUploadForm();
-        }
-    });
-    
-    uploadForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitButton = uploadForm.querySelector('.submit-button');
-        const file = videoInput.files[0];
-    
-        if (!file) {
-            alert('Por favor, selecciona un video para subir.');
-            return;
-        }
-    
-        submitButton.textContent = 'Subiendo...';
-        submitButton.disabled = true;
-    
-        try {
-            // Aquí iría la lógica real de subida al servidor
-            // Por ahora simulamos con un timeout
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            submitButton.textContent = '¡Publicado!';
-            setTimeout(() => {
-                uploadModal.classList.remove('active');
-                resetUploadForm();
-            }, 1500);
-        } catch (error) {
-            console.error('Error al subir el video:', error);
-            alert('Error al subir el video. Por favor, intenta nuevamente.');
+        }, CONFIG.successMessageDuration);
+    } catch (error) {
+        handleError(error, 'Error al subir el video. Por favor, intenta nuevamente.');
+        if (submitButton) {
             submitButton.textContent = 'Publicar';
             submitButton.disabled = false;
         }
-    });
-    
-    // Video Player Functionality con manejo mejorado de errores
-    function togglePlay() {
-        if (!videoPlayer.src) {
-            return;
-        }
-    
+        playerState.isUploading = false;
+    }
+}
+
+// Funciones del reproductor mejoradas
+async function togglePlay() {
+    if (!videoPlayer.src) return;
+
+    try {
         if (videoPlayer.paused) {
-            videoPlayer.play()
-                .then(() => {
-                    playPauseBtn.innerHTML = '<i class="lucide-pause"></i>';
-                })
-                .catch(error => {
-                    console.error('Error al reproducir:', error);
-                    alert('Error al reproducir el video.');
-                });
+            await videoPlayer.play();
+            playPauseBtn.innerHTML = CONFIG.icons.pause;
         } else {
             videoPlayer.pause();
-            playPauseBtn.innerHTML = '<i class="lucide-play"></i>';
+            playPauseBtn.innerHTML = CONFIG.icons.play;
         }
+    } catch (error) {
+        handleError(error, 'Error al reproducir el video');
     }
-    
+}
+
+function toggleMute() {
+    if (!videoPlayer.src) return;
+
+    try {
+        if (videoPlayer.muted) {
+            videoPlayer.muted = false;
+            videoPlayer.volume = playerState.lastVolume;
+            muteBtn.innerHTML = CONFIG.icons.volumeOn;
+            volumeLevel.style.transform = `scaleX(${playerState.lastVolume})`;
+        } else {
+            playerState.lastVolume = videoPlayer.volume;
+            videoPlayer.muted = true;
+            videoPlayer.volume = 0;
+            muteBtn.innerHTML = CONFIG.icons.volumeOff;
+            volumeLevel.style.transform = 'scaleX(0)';
+        }
+    } catch (error) {
+        handleError(error, 'Error al cambiar el estado del audio');
+    }
+}
+
+async function toggleFullscreen() {
+    if (!videoPlayer.src) return;
+
+    try {
+        if (!document.fullscreenElement) {
+            await videoContainer.requestFullscreen();
+            fullscreenBtn.innerHTML = CONFIG.icons.minimize;
+        } else {
+            await document.exitFullscreen();
+            fullscreenBtn.innerHTML = CONFIG.icons.maximize;
+        }
+    } catch (error) {
+        handleError(error, 'Error al cambiar el modo de pantalla');
+    }
+}
+
+// Inicialización y event listeners
+function initializePlayer() {
+    // Upload handlers
+    initializeUploadModal();
+    videoInput.addEventListener('change', handleFileSelect);
+    uploadForm.addEventListener('submit', handleFormSubmit);
+
+    // Video player handlers
     videoContainer.addEventListener('click', (e) => {
         if (!e.target.closest('.video-controls')) {
             togglePlay();
         }
     });
-    
+
     playPauseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         togglePlay();
     });
-    
-    let lastVolume = 1;
-    function toggleMute() {
-        if (!videoPlayer.src) {
-            return;
-        }
-    
-        if (videoPlayer.muted) {
-            videoPlayer.muted = false;
-            videoPlayer.volume = lastVolume;
-            muteBtn.innerHTML = '<i class="lucide-volume-2"></i>';
-            volumeLevel.style.transform = `scaleX(${lastVolume})`;
-        } else {
-            lastVolume = videoPlayer.volume;
-            videoPlayer.muted = true;
-            videoPlayer.volume = 0;
-            muteBtn.innerHTML = '<i class="lucide-volume-x"></i>';
-            volumeLevel.style.transform = 'scaleX(0)';
-        }
-    }
-    
+
     muteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleMute();
     });
-    
-    function toggleFullscreen() {
-        if (!videoPlayer.src) {
-            return;
-        }
-    
-        if (!document.fullscreenElement) {
-            videoContainer.requestFullscreen()
-                .catch(error => {
-                    console.error('Error al entrar en pantalla completa:', error);
-                });
-            fullscreenBtn.innerHTML = '<i class="lucide-minimize"></i>';
-        } else {
-            document.exitFullscreen()
-                .catch(error => {
-                    console.error('Error al salir de pantalla completa:', error);
-                });
-            fullscreenBtn.innerHTML = '<i class="lucide-maximize"></i>';
-        }
-    }
-    
+
     fullscreenBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleFullscreen();
     });
-    
-    // Progress bar functionality mejorada
+
+    // Progress bar
     videoPlayer.addEventListener('timeupdate', () => {
         if (!isNaN(videoPlayer.duration) && videoPlayer.duration > 0) {
             const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
             progressBar.style.width = `${percentage}%`;
         }
     });
-    
+
     progressContainer.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!videoPlayer.src || isNaN(videoPlayer.duration)) {
-            return;
-        }
-    
+        if (!videoPlayer.src || isNaN(videoPlayer.duration)) return;
+
         const rect = progressContainer.getBoundingClientRect();
         const percentage = (e.clientX - rect.left) / rect.width;
         videoPlayer.currentTime = percentage * videoPlayer.duration;
     });
-    
-    // Volume control mejorado
+
+    // Volume control
     const volumeSlider = document.querySelector('.volume-slider');
-    volumeSlider.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!videoPlayer.src) {
-            return;
-        }
-    
-        const rect = volumeSlider.getBoundingClientRect();
-        const volume = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        videoPlayer.volume = volume;
-        volumeLevel.style.transform = `scaleX(${volume})`;
-        
-        if (volume === 0) {
-            videoPlayer.muted = true;
-            muteBtn.innerHTML = '<i class="lucide-volume-x"></i>';
-        } else {
-            videoPlayer.muted = false;
-            lastVolume = volume;
-            muteBtn.innerHTML = '<i class="lucide-volume-2"></i>';
-        }
-    });
-    
-    // Event Listeners mejorados
-    videoPlayer.addEventListener('waiting', () => {
-        loadingIndicator.classList.add('active');
-    });
-    
-    videoPlayer.addEventListener('canplay', () => {
-        loadingIndicator.classList.remove('active');
-    });
-    
+    if (volumeSlider) {
+        volumeSlider.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!videoPlayer.src) return;
+
+            const rect = volumeSlider.getBoundingClientRect();
+            const volume = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            videoPlayer.volume = volume;
+            volumeLevel.style.transform = `scaleX(${volume})`;
+            
+            if (volume === 0) {
+                videoPlayer.muted = true;
+                muteBtn.innerHTML = CONFIG.icons.volumeOff;
+            } else {
+                videoPlayer.muted = false;
+                playerState.lastVolume = volume;
+                muteBtn.innerHTML = CONFIG.icons.volumeOn;
+            }
+        });
+    }
+
+    // Video state events
+    videoPlayer.addEventListener('waiting', () => loadingIndicator.classList.add('active'));
+    videoPlayer.addEventListener('canplay', () => loadingIndicator.classList.remove('active'));
     videoPlayer.addEventListener('playing', () => {
         loadingIndicator.classList.remove('active');
-        playPauseBtn.innerHTML = '<i class="lucide-pause"></i>';
+        playPauseBtn.innerHTML = CONFIG.icons.pause;
     });
-    
     videoPlayer.addEventListener('pause', () => {
-        playPauseBtn.innerHTML = '<i class="lucide-play"></i>';
+        playPauseBtn.innerHTML = CONFIG.icons.play;
     });
-    
     videoPlayer.addEventListener('ended', resetVideoState);
-    
+
+    // Error handling
+    videoPlayer.addEventListener('error', () => {
+        loadingIndicator.classList.remove('active');
+        handleError(
+            new VideoPlayerError('Error en la reproducción del video', 'playback'),
+            'Error al reproducir el video. Por favor, intenta con otro archivo.'
+        );
+        resetVideoState();
+    });
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            return;
-        }
-    
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
         switch (e.code) {
             case 'Space':
                 e.preventDefault();
@@ -656,36 +755,20 @@
                 break;
         }
     });
-    
-    // Video state management
-    function resetVideoState() {
-        if (!videoPlayer.src) {
-            return;
-        }
-        
-        videoPlayer.currentTime = 0;
-        videoPlayer.pause();
-        progressBar.style.width = '0%';
-        playPauseBtn.innerHTML = '<i class="lucide-play"></i>';
-    }
-    
+
     // Cleanup
     window.addEventListener('beforeunload', () => {
         if (videoPlayer.src) {
             URL.revokeObjectURL(videoPlayer.src);
         }
     });
-    
-    // Error handling mejorado
-    videoPlayer.addEventListener('error', () => {
-        loadingIndicator.classList.remove('active');
-        console.error('Error en el video:', videoPlayer.error);
-        alert('Error al reproducir el video. Por favor, intenta con otro archivo.');
-        resetVideoState();
-    });
-    
+
     // Initialize volume display
     volumeLevel.style.transform = `scaleX(${videoPlayer.volume})`;
+}
+
+// Iniciar el reproductor cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', initializePlayer);
 </script>
 </body>
 </html>
