@@ -309,6 +309,332 @@
                 console.log('Video seleccionado:', file.name);
             }
         });
+        <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feed de Videos</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.css" rel="stylesheet">
+    <style>
+        /* Existing styles remain... */
+
+        /* Video Player Styles */
+        .video-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: black;
+            cursor: pointer;
+        }
+
+        .video-player {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-controls {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            padding: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 1rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .video-container:hover .video-controls {
+            opacity: 1;
+        }
+
+        .control-button {
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .control-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-container {
+            position: absolute;
+            bottom: 70px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #ff3b5c;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            display: none;
+        }
+
+        .loading-indicator.active {
+            display: block;
+        }
+
+        /* Volume Control */
+        .volume-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .volume-slider {
+            width: 0;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.2);
+            position: absolute;
+            left: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: width 0.3s;
+            overflow: hidden;
+            border-radius: 2px;
+        }
+
+        .volume-container:hover .volume-slider {
+            width: 80px;
+        }
+
+        .volume-level {
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            transform-origin: left;
+            transform: scaleX(0.7);
+        }
+
+        /* Existing styles remain the same... */
+    </style>
+</head>
+<body>
+    <!-- Previous HTML remains the same until video-container... -->
+
+    <div class="main-content">
+        <div class="video-container" id="videoContainer">
+            <video class="video-player" id="videoPlayer" loop playsinline>
+                <source src="" type="video/mp4">
+                Tu navegador no soporta el elemento video.
+            </video>
+            
+            <div class="loading-indicator" id="loadingIndicator">
+                <i class="lucide-loader-2"></i>
+            </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+
+            <div class="video-controls" id="videoControls">
+                <button class="control-button" id="playPauseBtn">
+                    <i class="lucide-play"></i>
+                </button>
+                
+                <div class="volume-container">
+                    <button class="control-button" id="muteBtn">
+                        <i class="lucide-volume-2"></i>
+                    </button>
+                    <div class="volume-slider">
+                        <div class="volume-level" id="volumeLevel"></div>
+                    </div>
+                </div>
+                
+                <button class="control-button" id="fullscreenBtn">
+                    <i class="lucide-maximize"></i>
+                </button>
+            </div>
+
+            <div class="video-info">
+                <!-- Existing video info remains the same... -->
+            </div>
+            
+            <div class="action-buttons">
+                <!-- Existing action buttons remain the same... -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Previous HTML remains the same... -->
+
+    <script>
+        // Existing script code remains...
+
+        // Video Player Functionality
+        const videoContainer = document.getElementById('videoContainer');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const volumeLevel = document.getElementById('volumeLevel');
+
+        // Initialize video source when file is selected
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const videoURL = URL.createObjectURL(file);
+                videoPlayer.src = videoURL;
+                console.log('Video cargado:', file.name);
+            }
+        });
+
+        // Play/Pause functionality
+        function togglePlay() {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+                playPauseBtn.innerHTML = '<i class="lucide-pause"></i>';
+            } else {
+                videoPlayer.pause();
+                playPauseBtn.innerHTML = '<i class="lucide-play"></i>';
+            }
+        }
+
+        videoContainer.addEventListener('click', (e) => {
+            // Prevent toggle when clicking controls or info
+            if (!e.target.closest('.video-controls') && 
+                !e.target.closest('.video-info') && 
+                !e.target.closest('.action-buttons')) {
+                togglePlay();
+            }
+        });
+        playPauseBtn.addEventListener('click', togglePlay);
+
+        // Mute functionality
+        let lastVolume = 1;
+        function toggleMute() {
+            if (videoPlayer.muted) {
+                videoPlayer.muted = false;
+                videoPlayer.volume = lastVolume;
+                muteBtn.innerHTML = '<i class="lucide-volume-2"></i>';
+                volumeLevel.style.transform = `scaleX(${lastVolume})`;
+            } else {
+                lastVolume = videoPlayer.volume;
+                videoPlayer.muted = true;
+                videoPlayer.volume = 0;
+                muteBtn.innerHTML = '<i class="lucide-volume-x"></i>';
+                volumeLevel.style.transform = 'scaleX(0)';
+            }
+        }
+        muteBtn.addEventListener('click', toggleMute);
+
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                videoContainer.requestFullscreen();
+                fullscreenBtn.innerHTML = '<i class="lucide-minimize"></i>';
+            } else {
+                document.exitFullscreen();
+                fullscreenBtn.innerHTML = '<i class="lucide-maximize"></i>';
+            }
+        }
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+        // Progress bar
+        videoPlayer.addEventListener('timeupdate', () => {
+            const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+            progressBar.style.width = `${percentage}%`;
+        });
+
+        progressContainer.addEventListener('click', (e) => {
+            const rect = progressContainer.getBoundingClientRect();
+            const percentage = (e.clientX - rect.left) / rect.width;
+            videoPlayer.currentTime = percentage * videoPlayer.duration;
+        });
+
+        // Loading indicator
+        videoPlayer.addEventListener('waiting', () => {
+            loadingIndicator.classList.add('active');
+        });
+
+        videoPlayer.addEventListener('canplay', () => {
+            loadingIndicator.classList.remove('active');
+        });
+
+        // Volume control
+        const volumeSlider = document.querySelector('.volume-slider');
+        volumeSlider.addEventListener('click', (e) => {
+            const rect = volumeSlider.getBoundingClientRect();
+            const volume = (e.clientX - rect.left) / rect.width;
+            videoPlayer.volume = Math.max(0, Math.min(1, volume));
+            volumeLevel.style.transform = `scaleX(${volume})`;
+            
+            if (volume === 0) {
+                videoPlayer.muted = true;
+                muteBtn.innerHTML = '<i class="lucide-volume-x"></i>';
+            } else {
+                videoPlayer.muted = false;
+                muteBtn.innerHTML = '<i class="lucide-volume-2"></i>';
+            }
+        });
+
+        // Auto-play when in view
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        videoPlayer.play();
+                        playPauseBtn.innerHTML = '<i class="lucide-pause"></i>';
+                    } else {
+                        videoPlayer.pause();
+                        playPauseBtn.innerHTML = '<i class="lucide-play"></i>';
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        observer.observe(videoContainer);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePlay();
+            } else if (e.code === 'KeyM') {
+                toggleMute();
+            } else if (e.code === 'KeyF') {
+                toggleFullscreen();
+            }
+        });
+
+        // Clean up
+        window.addEventListener('beforeunload', () => {
+            if (videoPlayer.src) {
+                URL.revokeObjectURL(videoPlayer.src);
+            }
+        });
+    </script>
+</body>
+</html>
     </script>
 </body>
 </html>
