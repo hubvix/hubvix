@@ -769,6 +769,24 @@ function initializePlayer() {
 
 // Iniciar el reproductor cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', initializePlayer);
+    class VideoPlayerError extends Error {
+    constructor(message, type) {
+        super(message);
+        this.name = 'VideoPlayerError';
+        this.type = type;
+    }
+}
+    const CONFIG = Object.freeze({
+    allowedTypes: ['video/mp4', 'video/webm', 'video/ogg'],
+    maxFileSize: 100 * 1024 * 1024, // 100MB
+    uploadTimeout: 2000,
+    successMessageDuration: 1500,
+    icons: {
+        play: '<i class="lucide-play"></i>',
+        pause: '<i class="lucide-pause"></i>',
+        // ...
+    }
+});
 </script>
 </body>
 </html>
