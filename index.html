@@ -1,165 +1,255 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feed de Videos</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.css" rel="stylesheet">
-    <style>
-        /* Previous CSS remains unchanged */
-    </style>
-</head>
-<body>
-    <!-- Previous HTML structure remains unchanged -->
-    <script>
-        // Single VideoPlayerError class definition
-        class VideoPlayerError extends Error {
-            constructor(message, type) {
-                super(message);
-                this.name = 'VideoPlayerError';
-                this.type = type;
-            }
-        }
+import React, { useState, useEffect } from 'react';
+import { Heart, Share2, MessageCircle, Play, Pause, Upload, UserPlus } from 'lucide-react';
 
-        // Single CONFIG object definition
-        const CONFIG = Object.freeze({
-            allowedTypes: ['video/mp4', 'video/webm', 'video/ogg'],
-            maxFileSize: 100 * 1024 * 1024, // 100MB
-            uploadTimeout: 2000,
-            successMessageDuration: 1500,
-            icons: {
-                play: '<i class="lucide-play"></i>',
-                pause: '<i class="lucide-pause"></i>',
-                volumeOn: '<i class="lucide-volume-2"></i>',
-                volumeOff: '<i class="lucide-volume-x"></i>',
-                maximize: '<i class="lucide-maximize"></i>',
-                minimize: '<i class="lucide-minimize"></i>'
-            }
-        });
+// Main App Component
+const SocialVideoApp = () => {
+  const [currentUser, setCurrentUser] = useState({
+    id: '1',
+    name: 'John Doe',
+    profilePic: '/api/placeholder/150/150',
+    followers: 1234,
+    following: 567
+  });
 
-        // DOM Elements with error handling
-        function getDOMElements() {
-            const elements = {
-                uploadBtn: document.getElementById('uploadBtn'),
-                uploadModal: document.getElementById('uploadModal'),
-                closeModal: document.getElementById('closeModal'),
-                uploadForm: document.getElementById('uploadForm'),
-                videoInput: document.getElementById('videoInput'),
-                videoContainer: document.getElementById('videoContainer'),
-                videoPlayer: document.getElementById('videoPlayer'),
-                playPauseBtn: document.getElementById('playPauseBtn'),
-                muteBtn: document.getElementById('muteBtn'),
-                fullscreenBtn: document.getElementById('fullscreenBtn'),
-                progressContainer: document.getElementById('progressContainer'),
-                progressBar: document.getElementById('progressBar'),
-                loadingIndicator: document.getElementById('loadingIndicator'),
-                volumeLevel: document.getElementById('volumeLevel')
-            };
+  const [videos, setVideos] = useState([
+    {
+      id: 1,
+      userId: '2',
+      userName: 'Jane Smith',
+      userPic: '/api/placeholder/150/150',
+      videoUrl: '/api/placeholder/400/600',
+      likes: 156,
+      shares: 42,
+      comments: [],
+      isLiked: false,
+      isFollowing: false
+    },
+    {
+      id: 2,
+      userId: '3',
+      userName: 'Mike Johnson',
+      userPic: '/api/placeholder/150/150',
+      videoUrl: '/api/placeholder/400/600',
+      likes: 89,
+      shares: 12,
+      comments: [],
+      isLiked: false,
+      isFollowing: true
+    }
+  ]);
 
-            // Verify all elements exist
-            for (const [key, element] of Object.entries(elements)) {
-                if (!element) {
-                    throw new Error(`Required DOM element not found: ${key}`);
-                }
-            }
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
 
-            return elements;
-        }
+  // Profile Component
+  const Profile = () => (
+    <div className="p-4 bg-white rounded-lg shadow-md">
+      <div className="flex items-center space-x-4">
+        <img 
+          src={currentUser.profilePic} 
+          alt="Profile" 
+          className="w-20 h-20 rounded-full"
+        />
+        <div>
+          <h2 className="text-xl font-bold">{currentUser.name}</h2>
+          <div className="flex space-x-4 mt-2 text-gray-600">
+            <span>{currentUser.followers} followers</span>
+            <span>{currentUser.following} following</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
-        // Initialize player with proper error handling
-        async function initializePlayer() {
-            try {
-                const elements = getDOMElements();
-                const playerState = {
-                    lastVolume: 1,
-                    isUploading: false
-                };
+  // Video Post Component
+  const VideoPost = ({ video }) => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [comment, setComment] = useState('');
 
-                // Event delegation for better performance
-                document.addEventListener('click', (e) => {
-                    const target = e.target;
+    const togglePlay = () => {
+      setIsPlaying(!isPlaying);
+      setCurrentlyPlaying(isPlaying ? null : video.id);
+    };
 
-                    // Handle video container clicks
-                    if (target.closest('#videoContainer') && !target.closest('.video-controls')) {
-                        togglePlay(elements.videoPlayer, elements.playPauseBtn);
-                    }
+    const handleLike = () => {
+      setVideos(videos.map(v => 
+        v.id === video.id 
+          ? { ...v, isLiked: !v.isLiked, likes: v.likes + (v.isLiked ? -1 : 1) }
+          : v
+      ));
+    };
 
-                    // Handle modal close clicks
-                    if (target === elements.uploadModal) {
-                        closeUploadModal(elements, playerState);
-                    }
-                });
+    const handleFollow = () => {
+      setVideos(videos.map(v =>
+        v.id === video.id
+          ? { ...v, isFollowing: !v.isFollowing }
+          : v
+      ));
+    };
 
-                // Initialize upload functionality
-                initializeUpload(elements, playerState);
+    const handleShare = () => {
+      setVideos(videos.map(v =>
+        v.id === video.id
+          ? { ...v, shares: v.shares + 1 }
+          : v
+      ));
+    };
 
-                // Initialize video controls
-                initializeVideoControls(elements, playerState);
+    const handleComment = (e) => {
+      e.preventDefault();
+      if (comment.trim()) {
+        setVideos(videos.map(v =>
+          v.id === video.id
+            ? { ...v, comments: [...v.comments, { text: comment, user: currentUser.name }] }
+            : v
+        ));
+        setComment('');
+      }
+    };
 
-                // Initialize keyboard shortcuts
-                initializeKeyboardShortcuts(elements);
+    return (
+      <div className="bg-white rounded-lg shadow-md mb-4 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <img 
+              src={video.userPic} 
+              alt={video.userName} 
+              className="w-10 h-10 rounded-full"
+            />
+            <span className="font-semibold">{video.userName}</span>
+          </div>
+          <button
+            onClick={handleFollow}
+            className={`px-4 py-2 rounded-full ${
+              video.isFollowing 
+                ? 'bg-gray-200 text-gray-800' 
+                : 'bg-blue-500 text-white'
+            }`}
+          >
+            <UserPlus className="w-5 h-5 inline mr-1" />
+            {video.isFollowing ? 'Following' : 'Follow'}
+          </button>
+        </div>
 
-                // Set initial volume display
-                elements.volumeLevel.style.transform = `scaleX(${elements.videoPlayer.volume})`;
+        <div className="relative">
+          <img 
+            src={video.videoUrl} 
+            alt="Video thumbnail" 
+            className="w-full rounded-lg"
+          />
+          <button
+            onClick={togglePlay}
+            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30"
+          >
+            {isPlaying ? (
+              <Pause className="w-12 h-12 text-white" />
+            ) : (
+              <Play className="w-12 h-12 text-white" />
+            )}
+          </button>
+        </div>
 
-            } catch (error) {
-                console.error('Failed to initialize player:', error);
-                alert('Error initializing video player. Please refresh the page.');
-            }
-        }
+        <div className="flex justify-between items-center mt-4">
+          <div className="flex space-x-4">
+            <button
+              onClick={handleLike}
+              className={`flex items-center space-x-1 ${
+                video.isLiked ? 'text-red-500' : 'text-gray-600'
+              }`}
+            >
+              <Heart className={`w-6 h-6 ${video.isLiked ? 'fill-current' : ''}`} />
+              <span>{video.likes}</span>
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex items-center space-x-1 text-gray-600"
+            >
+              <Share2 className="w-6 h-6" />
+              <span>{video.shares}</span>
+            </button>
+          </div>
+        </div>
 
-        // Helper functions with proper error handling
-        function initializeUpload(elements, playerState) {
-            const { uploadBtn, uploadModal, closeModal, uploadForm, videoInput } = elements;
+        <form onSubmit={handleComment} className="mt-4">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-full"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </button>
+          </div>
+        </form>
 
-            uploadBtn.addEventListener('click', () => {
-                if (!playerState.isUploading) {
-                    uploadModal.classList.add('active');
-                }
-            });
+        <div className="mt-4 space-y-2">
+          {video.comments.map((comment, index) => (
+            <div key={index} className="text-sm">
+              <span className="font-semibold">{comment.user}:</span> {comment.text}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
-            closeModal.addEventListener('click', () => {
-                closeUploadModal(elements, playerState);
-            });
+  // Advertisement Component
+  const Advertisement = () => (
+    <div className="bg-gray-100 rounded-lg p-4 mb-4">
+      <div className="text-center text-gray-600">Advertisement</div>
+      <img 
+        src="/api/placeholder/400/200" 
+        alt="Advertisement" 
+        className="w-full h-32 object-cover rounded mt-2"
+      />
+    </div>
+  );
 
-            videoInput.addEventListener('change', (e) => handleFileSelect(e, elements, playerState));
-            uploadForm.addEventListener('submit', (e) => handleFormSubmit(e, elements, playerState));
-        }
+  // Upload Button Component
+  const UploadButton = () => (
+    <div className="fixed bottom-4 right-4">
+      <input
+        type="file"
+        id="video-upload"
+        className="hidden"
+        accept="video/*"
+        onChange={(e) => {
+          setSelectedFile(e.target.files[0]);
+          setIsPublishing(true);
+        }}
+      />
+      <label
+        htmlFor="video-upload"
+        className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg cursor-pointer ${
+          isPublishing ? 'bg-red-500' : 'bg-white'
+        }`}
+      >
+        <Upload className={`w-6 h-6 ${isPublishing ? 'text-white' : 'text-gray-800'}`} />
+      </label>
+    </div>
+  );
 
-        function initializeVideoControls(elements, playerState) {
-            const { videoPlayer, playPauseBtn, muteBtn, fullscreenBtn, progressContainer, volumeLevel } = elements;
+  return (
+    <div className="max-w-2xl mx-auto pb-20">
+      <Profile />
+      <div className="mt-8">
+        {videos.map((video, index) => (
+          <React.Fragment key={video.id}>
+            <VideoPost video={video} />
+            {index % 3 === 1 && <Advertisement />}
+          </React.Fragment>
+        ))}
+      </div>
+      <UploadButton />
+    </div>
+  );
+};
 
-            // Add event listeners with proper error handling
-            playPauseBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                togglePlay(videoPlayer, playPauseBtn);
-            });
-
-            muteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleMute(videoPlayer, muteBtn, volumeLevel, playerState);
-            });
-
-            fullscreenBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleFullscreen(elements.videoContainer, fullscreenBtn);
-            });
-
-            // Progress bar handling
-            videoPlayer.addEventListener('timeupdate', () => updateProgress(videoPlayer, elements.progressBar));
-            progressContainer.addEventListener('click', (e) => handleProgressClick(e, videoPlayer, progressContainer));
-        }
-
-        // Initialize the player when DOM is ready
-        document.addEventListener('DOMContentLoaded', initializePlayer);
-
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            const videoPlayer = document.getElementById('videoPlayer');
-            if (videoPlayer && videoPlayer.src) {
-                URL.revokeObjectURL(videoPlayer.src);
-            }
-        });
-    </script>
-</body>
-</html>
+export default SocialVideoApp;
