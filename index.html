@@ -1,255 +1,352 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, Share2, MessageCircle, Play, Pause, Upload, UserPlus } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Video Network</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
 
-// Main App Component
-const SocialVideoApp = () => {
-  const [currentUser, setCurrentUser] = useState({
-    id: '1',
-    name: 'John Doe',
-    profilePic: '/api/placeholder/150/150',
-    followers: 1234,
-    following: 567
-  });
+        body {
+            background-color: #f0f2f5;
+        }
 
-  const [videos, setVideos] = useState([
-    {
-      id: 1,
-      userId: '2',
-      userName: 'Jane Smith',
-      userPic: '/api/placeholder/150/150',
-      videoUrl: '/api/placeholder/400/600',
-      likes: 156,
-      shares: 42,
-      comments: [],
-      isLiked: false,
-      isFollowing: false
-    },
-    {
-      id: 2,
-      userId: '3',
-      userName: 'Mike Johnson',
-      userPic: '/api/placeholder/150/150',
-      videoUrl: '/api/placeholder/400/600',
-      likes: 89,
-      shares: 12,
-      comments: [],
-      isLiked: false,
-      isFollowing: true
-    }
-  ]);
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
+        /* Profile Section */
+        .profile-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
 
-  // Profile Component
-  const Profile = () => (
-    <div className="p-4 bg-white rounded-lg shadow-md">
-      <div className="flex items-center space-x-4">
-        <img 
-          src={currentUser.profilePic} 
-          alt="Profile" 
-          className="w-20 h-20 rounded-full"
-        />
-        <div>
-          <h2 className="text-xl font-bold">{currentUser.name}</h2>
-          <div className="flex space-x-4 mt-2 text-gray-600">
-            <span>{currentUser.followers} followers</span>
-            <span>{currentUser.following} following</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
 
-  // Video Post Component
-  const VideoPost = ({ video }) => {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [comment, setComment] = useState('');
+        .profile-pic {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
 
-    const togglePlay = () => {
-      setIsPlaying(!isPlaying);
-      setCurrentlyPlaying(isPlaying ? null : video.id);
-    };
+        .profile-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
 
-    const handleLike = () => {
-      setVideos(videos.map(v => 
-        v.id === video.id 
-          ? { ...v, isLiked: !v.isLiked, likes: v.likes + (v.isLiked ? -1 : 1) }
-          : v
-      ));
-    };
+        .profile-stats {
+            display: flex;
+            gap: 20px;
+            color: #65676b;
+        }
 
-    const handleFollow = () => {
-      setVideos(videos.map(v =>
-        v.id === video.id
-          ? { ...v, isFollowing: !v.isFollowing }
-          : v
-      ));
-    };
+        /* Video Post */
+        .post-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
 
-    const handleShare = () => {
-      setVideos(videos.map(v =>
-        v.id === video.id
-          ? { ...v, shares: v.shares + 1 }
-          : v
-      ));
-    };
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
 
-    const handleComment = (e) => {
-      e.preventDefault();
-      if (comment.trim()) {
-        setVideos(videos.map(v =>
-          v.id === video.id
-            ? { ...v, comments: [...v.comments, { text: comment, user: currentUser.name }] }
-            : v
-        ));
-        setComment('');
-      }
-    };
+        .post-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-    return (
-      <div className="bg-white rounded-lg shadow-md mb-4 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={video.userPic} 
-              alt={video.userName} 
-              className="w-10 h-10 rounded-full"
-            />
-            <span className="font-semibold">{video.userName}</span>
-          </div>
-          <button
-            onClick={handleFollow}
-            className={`px-4 py-2 rounded-full ${
-              video.isFollowing 
-                ? 'bg-gray-200 text-gray-800' 
-                : 'bg-blue-500 text-white'
-            }`}
-          >
-            <UserPlus className="w-5 h-5 inline mr-1" />
-            {video.isFollowing ? 'Following' : 'Follow'}
-          </button>
-        </div>
+        .post-user img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
 
-        <div className="relative">
-          <img 
-            src={video.videoUrl} 
-            alt="Video thumbnail" 
-            className="w-full rounded-lg"
-          />
-          <button
-            onClick={togglePlay}
-            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30"
-          >
-            {isPlaying ? (
-              <Pause className="w-12 h-12 text-white" />
-            ) : (
-              <Play className="w-12 h-12 text-white" />
-            )}
-          </button>
-        </div>
+        .follow-btn {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
 
-        <div className="flex justify-between items-center mt-4">
-          <div className="flex space-x-4">
-            <button
-              onClick={handleLike}
-              className={`flex items-center space-x-1 ${
-                video.isLiked ? 'text-red-500' : 'text-gray-600'
-              }`}
-            >
-              <Heart className={`w-6 h-6 ${video.isLiked ? 'fill-current' : ''}`} />
-              <span>{video.likes}</span>
-            </button>
-            <button
-              onClick={handleShare}
-              className="flex items-center space-x-1 text-gray-600"
-            >
-              <Share2 className="w-6 h-6" />
-              <span>{video.shares}</span>
-            </button>
-          </div>
-        </div>
+        .follow-btn.following {
+            background: #e4e6eb;
+            color: #050505;
+        }
 
-        <form onSubmit={handleComment} className="mt-4">
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:border-blue-500"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-full"
-            >
-              <MessageCircle className="w-5 h-5" />
-            </button>
-          </div>
-        </form>
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
 
-        <div className="mt-4 space-y-2">
-          {video.comments.map((comment, index) => (
-            <div key={index} className="text-sm">
-              <span className="font-semibold">{comment.user}:</span> {comment.text}
+        .video-container img {
+            width: 100%;
+            display: block;
+        }
+
+        .play-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            color: white;
+            font-size: 24px;
+        }
+
+        .post-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #65676b;
+            font-size: 14px;
+        }
+
+        .action-btn.liked {
+            color: #ed4956;
+        }
+
+        .comment-section {
+            margin-top: 15px;
+        }
+
+        .comment-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .comment-input {
+            flex: 1;
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .comment-submit {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        .comments-list {
+            font-size: 14px;
+        }
+
+        .comment {
+            margin-bottom: 8px;
+        }
+
+        .comment-user {
+            font-weight: 600;
+        }
+
+        /* Advertisement */
+        .ad-card {
+            background: #f7f8fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .ad-label {
+            color: #65676b;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .ad-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        /* Upload Button */
+        .upload-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+
+        .upload-btn:hover {
+            background: #ed4956;
+            color: white;
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 640px) {
+            .container {
+                padding: 10px;
+            }
+
+            .profile-pic {
+                width: 60px;
+                height: 60px;
+            }
+
+            .profile-info h2 {
+                font-size: 1.2rem;
+            }
+
+            .post-card {
+                padding: 15px;
+            }
+
+            .play-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Profile Section -->
+        <div class="profile-card">
+            <div class="profile-header">
+                <img src="/api/placeholder/150/150" alt="Profile Picture" class="profile-pic">
+                <div class="profile-info">
+                    <h2>John Doe</h2>
+                    <div class="profile-stats">
+                        <span>1,234 followers</span>
+                        <span>567 following</span>
+                    </div>
+                </div>
             </div>
-          ))}
         </div>
-      </div>
-    );
-  };
 
-  // Advertisement Component
-  const Advertisement = () => (
-    <div className="bg-gray-100 rounded-lg p-4 mb-4">
-      <div className="text-center text-gray-600">Advertisement</div>
-      <img 
-        src="/api/placeholder/400/200" 
-        alt="Advertisement" 
-        className="w-full h-32 object-cover rounded mt-2"
-      />
+        <!-- Video Posts -->
+        <div class="post-card">
+            <div class="post-header">
+                <div class="post-user">
+                    <img src="/api/placeholder/150/150" alt="User">
+                    <span>Jane Smith</span>
+                </div>
+                <button class="follow-btn">
+                    <i class="fas fa-user-plus"></i>
+                    Follow
+                </button>
+            </div>
+
+            <div class="video-container">
+                <img src="/api/placeholder/600/800" alt="Video thumbnail">
+                <button class="play-btn">
+                    <i class="fas fa-play"></i>
+                </button>
+            </div>
+
+            <div class="post-actions">
+                <div class="action-buttons">
+                    <button class="action-btn">
+                        <i class="far fa-heart"></i>
+                        <span>156</span>
+                    </button>
+                    <button class="action-btn">
+                        <i class="far fa-share-square"></i>
+                        <span>42</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="comment-section">
+                <form class="comment-form">
+                    <input type="text" placeholder="Add a comment..." class="comment-input">
+                    <button type="submit" class="comment-submit">
+                        <i class="far fa-comment"></i>
+                    </button>
+                </form>
+                <div class="comments-list">
+                    <div class="comment">
+                        <span class="comment-user">Mike:</span>
+                        <span class="comment-text">Great video!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advertisement -->
+        <div class="ad-card">
+            <div class="ad-label">Advertisement</div>
+            <img src="/api/placeholder/600/300" alt="Advertisement" class="ad-image">
+        </div>
+
+        <!-- Upload Button -->
+        <input type="file" id="video-upload" class="upload-input" accept="video/*">
+        <label for="video-upload" class="upload-btn">
+            <i class="fas fa-plus"></i>
+        </label>
     </div>
-  );
-
-  // Upload Button Component
-  const UploadButton = () => (
-    <div className="fixed bottom-4 right-4">
-      <input
-        type="file"
-        id="video-upload"
-        className="hidden"
-        accept="video/*"
-        onChange={(e) => {
-          setSelectedFile(e.target.files[0]);
-          setIsPublishing(true);
-        }}
-      />
-      <label
-        htmlFor="video-upload"
-        className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg cursor-pointer ${
-          isPublishing ? 'bg-red-500' : 'bg-white'
-        }`}
-      >
-        <Upload className={`w-6 h-6 ${isPublishing ? 'text-white' : 'text-gray-800'}`} />
-      </label>
-    </div>
-  );
-
-  return (
-    <div className="max-w-2xl mx-auto pb-20">
-      <Profile />
-      <div className="mt-8">
-        {videos.map((video, index) => (
-          <React.Fragment key={video.id}>
-            <VideoPost video={video} />
-            {index % 3 === 1 && <Advertisement />}
-          </React.Fragment>
-        ))}
-      </div>
-      <UploadButton />
-    </div>
-  );
-};
-
-export default SocialVideoApp;
+</body>
+</html>
