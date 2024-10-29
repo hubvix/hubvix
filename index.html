@@ -184,91 +184,483 @@
     </main>
 
     <script>
-        function togglePublish() {
-            const publishBtn = document.querySelector('.publish-btn');
-            publishBtn.classList.toggle('active');
-            
-            if (publishBtn.classList.contains('active')) {
-                // Simulate file input click
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'video/*';
-                input.onchange = handleVideoUpload;
-                input.click();
+// Constants and configurations
+const CONFIG = {
+    UPLOAD: {
+        MAX_SIZE_MB: 100,
+        ALLOWED_TYPES: ['video/mp4', 'video/webm', 'video/quicktime'],
+        CHUNK_SIZE: 1024 * 1024, // 1MB chunks for upload
+    },
+    ANIMATIONS: {
+        DURATION: 300,
+        EASING: 'ease-in-out',
+    },
+    SCROLL: {
+        THRESHOLD: 800,
+        DEBOUNCE_MS: 150,
+    }
+};
+
+// Utility functions
+const utils = {
+    formatNumber: (num) => {
+        if (num >= 1000000) return `${(num/1000000).toFixed(1)}M`;
+        if (num >= 1000) return `${(num/1000).toFixed(1)}K`;
+        return num.toString();
+    },
+
+    debounce: (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+
+    validateFile: (file) => {
+        if (!file) return { valid: false, error: 'No file selected' };
+        
+        if (!CONFIG.UPLOAD.ALLOWED_TYPES.includes(file.type)) {
+            return { valid: false, error: 'Invalid file type. Please upload MP4, WebM, or QuickTime video.' };
+        }
+
+        if (file.size > CONFIG.UPLOAD.MAX_SIZE_MB * 1024 * 1024) {
+            return { valid: false, error: `File size exceeds ${CONFIG.UPLOAD.MAX_SIZE_MB}MB limit` };
+        }
+
+        return { valid: true };
+    },
+
+    showToast: (message, type = 'info') => {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Animate in
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-100%)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+};
+
+// Enhanced publish functionality
+async function togglePublish() {
+    const publishBtn = document.querySelector('.publish-btn');
+    
+    // Add loading state
+    if (publishBtn.classList.contains('loading')) return;
+    
+    publishBtn.classList.toggle('active');
+    
+    if (publishBtn.classList.contains('active')) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = CONFIG.UPLOAD.ALLOWED_TYPES.join(',');
+        input.onchange = handleVideoUpload;
+        
+        // Add drag and drop support
+        document.addEventListener('dragover', handleDragOver);
+        document.addEventListener('drop', handleDrop);
+        
+        input.click();
+    }
+}
+
+async function handleVideoUpload(event) {
+    const file = event.target.files[0];
+    const publishBtn = document.querySelector('.publish-btn');
+    
+    const validation = utils.validateFile(file);
+    if (!validation.valid) {
+        utils.showToast(validation.error, 'error');
+        publishBtn.classList.remove('active');
+        return;
+    }
+
+    try {
+        publishBtn.classList.add('loading');
+        publishBtn.innerHTML = '<span class="spinner"></span> Uploading...';
+
+        // Create video preview
+        const preview = await createVideoPreview(file);
+        showUploadPreview(preview);
+
+        // Simulate chunk upload
+        const chunks = Math.ceil(file.size / CONFIG.UPLOAD.CHUNK_SIZE);
+        const progressBar = document.createElement('div');
+        progressBar.className = 'upload-progress';
+        publishBtn.appendChild(progressBar);
+
+        for (let i = 0; i < chunks; i++) {
+            await simulateChunkUpload(i, chunks, progressBar);
+        }
+
+        utils.showToast('Video uploaded successfully!', 'success');
+        await processVideo(file);
+
+    } catch (error) {
+        utils.showToast(`Upload failed: ${error.message}`, 'error');
+    } finally {
+        publishBtn.classList.remove('active', 'loading');
+        publishBtn.textContent = 'Publish';
+    }
+}
+
+// Enhanced video player controls
+class VideoController {
+    constructor(videoElement) {
+        this.video = videoElement;
+        this.button = videoElement.closest('.video-container').querySelector('.play-pause');
+        this.progress = document.createElement('div');
+        this.progress.className = 'video-progress';
+        this.setupControls();
+    }
+
+    setupControls() {
+        // Add progress bar
+        this.video.parentElement.appendChild(this.progress);
+        
+        // Add double-tap to seek
+        this.setupDoubleTapSeek();
+        
+        // Add keyboard controls
+        this.setupKeyboardControls();
+        
+        // Add volume controls
+        this.setupVolumeControls();
+        
+        // Update progress bar
+        this.video.addEventListener('timeupdate', () => this.updateProgress());
+    }
+
+    togglePlay() {
+        if (this.video.paused) {
+            this.play();
+        } else {
+            this.pause();
+        }
+    }
+
+    async play() {
+        try {
+            await this.video.play();
+            this.button.textContent = '⏸️';
+            this.button.classList.add('playing');
+        } catch (error) {
+            utils.showToast('Playback failed. Please try again.', 'error');
+        }
+    }
+
+    pause() {
+        this.video.pause();
+        this.button.textContent = '▶️';
+        this.button.classList.remove('playing');
+    }
+
+    setupDoubleTapSeek() {
+        let lastTap = 0;
+        const DOUBLE_TAP_DELAY = 300;
+
+        this.video.addEventListener('touchstart', (e) => {
+            const currentTime = new Date().getTime();
+            const tapPosition = e.touches[0].clientX;
+            const videoWidth = this.video.offsetWidth;
+
+            if (currentTime - lastTap < DOUBLE_TAP_DELAY) {
+                // Double tap detected
+                if (tapPosition < videoWidth / 2) {
+                    // Left side - rewind 10s
+                    this.video.currentTime = Math.max(0, this.video.currentTime - 10);
+                } else {
+                    // Right side - forward 10s
+                    this.video.currentTime = Math.min(this.video.duration, this.video.currentTime + 10);
+                }
             }
-        }
+            lastTap = currentTime;
+        });
+    }
 
-        function handleVideoUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                // Simulate video upload
-                setTimeout(() => {
-                    alert('Video uploaded successfully!');
-                    const publishBtn = document.querySelector('.publish-btn');
-                    publishBtn.classList.remove('active');
-                }, 1000);
-            }
-        }
-
-        function togglePlay(button) {
-            const video = button.closest('.video-container').querySelector('video');
-            if (video.paused) {
-                video.play();
-                button.textContent = '⏸️';
-            } else {
-                video.pause();
-                button.textContent = '▶️';
-            }
-        }
-
-        function toggleLike(button) {
-            const isLiked = button.textContent === '❤️';
-            button.textContent = isLiked ? '🤍' : '❤️';
-            const likesCount = button.nextElementSibling;
-            const currentLikes = parseInt(likesCount.textContent);
-            likesCount.textContent = isLiked ? currentLikes - 1 : currentLikes + 1;
-        }
-
-        function showComments(button) {
-            const reel = button.closest('.reel');
-            const commentSection = reel.querySelector('.comment-section');
-            commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function handleComment(event, input) {
-            if (event.key === 'Enter' && input.value.trim()) {
-                const commentsCount = input.closest('.reel').querySelector('.comments-count');
-                const currentComments = parseInt(commentsCount.textContent);
-                commentsCount.textContent = currentComments + 1;
-                input.value = '';
-            }
-        }
-
-        function followUser(button) {
-            button.textContent = button.textContent === 'Follow' ? 'Following' : 'Follow';
-        }
-
-        function shareVideo(button) {
-            const sharesCount = button.nextElementSibling;
-            const currentShares = parseInt(sharesCount.textContent);
-            sharesCount.textContent = currentShares + 1;
-            alert('Video shared successfully!');
-        }
-
-        // Simulate loading more reels
-        function loadMoreReels() {
-            const feed = document.querySelector('.feed');
-            const firstReel = document.querySelector('.reel');
-            const newReel = firstReel.cloneNode(true);
-            feed.appendChild(newReel);
-        }
-
-        // Load more reels when scrolling near bottom
-        window.addEventListener('scroll', () => {
-            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
-                loadMoreReels();
+    setupKeyboardControls() {
+        document.addEventListener('keydown', (e) => {
+            if (this.video.closest('.reel').classList.contains('active')) {
+                switch(e.key) {
+                    case ' ': // Space bar
+                        e.preventDefault();
+                        this.togglePlay();
+                        break;
+                    case 'ArrowLeft':
+                        this.video.currentTime -= 5;
+                        break;
+                    case 'ArrowRight':
+                        this.video.currentTime += 5;
+                        break;
+                    case 'm':
+                        this.video.muted = !this.video.muted;
+                        break;
+                }
             }
         });
+    }
+
+    setupVolumeControls() {
+        const volumeControl = document.createElement('div');
+        volumeControl.className = 'volume-control';
+        this.button.parentElement.appendChild(volumeControl);
+
+        // Add volume slider
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0;
+        slider.max = 1;
+        slider.step = 0.1;
+        slider.value = this.video.volume;
+        
+        slider.addEventListener('input', (e) => {
+            this.video.volume = e.target.value;
+        });
+
+        volumeControl.appendChild(slider);
+    }
+
+    updateProgress() {
+        const progress = (this.video.currentTime / this.video.duration) * 100;
+        this.progress.style.width = `${progress}%`;
+    }
+}
+
+// Enhanced interaction functions
+class InteractionManager {
+    constructor(reel) {
+        this.reel = reel;
+        this.setupAnimations();
+        this.setupIntersectionObserver();
+    }
+
+    setupAnimations() {
+        this.likeAnimation = this.reel.querySelector('.like-animation');
+        this.shareAnimation = this.reel.querySelector('.share-animation');
+    }
+
+    async toggleLike(button) {
+        const isLiked = button.classList.contains('liked');
+        const likesCount = button.nextElementSibling;
+        const currentLikes = parseInt(likesCount.textContent);
+
+        // Animate like button
+        button.classList.add('animating');
+        
+        try {
+            // Simulate API call
+            await this.updateLikeStatus(!isLiked);
+            
+            button.classList.toggle('liked');
+            button.textContent = isLiked ? '🤍' : '❤️';
+            
+            // Animate counter
+            this.animateCounter(likesCount, currentLikes, isLiked ? -1 : 1);
+            
+            // Show heart animation
+            if (!isLiked) this.showHeartAnimation();
+            
+        } catch (error) {
+            utils.showToast('Failed to update like status', 'error');
+        } finally {
+            button.classList.remove('animating');
+        }
+    }
+
+    async updateLikeStatus(liked) {
+        // Simulate API call
+        return new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    showHeartAnimation() {
+        const heart = document.createElement('div');
+        heart.className = 'floating-heart';
+        this.reel.appendChild(heart);
+        
+        requestAnimationFrame(() => {
+            heart.style.transform = 'translateY(-100px) scale(0)';
+            heart.style.opacity = '0';
+        });
+        
+        setTimeout(() => heart.remove(), 1000);
+    }
+
+    animateCounter(element, startValue, change) {
+        const duration = 1000;
+        const steps = 60;
+        const stepValue = change / steps;
+        let currentStep = 0;
+
+        const animate = () => {
+            currentStep++;
+            const currentValue = startValue + (stepValue * currentStep);
+            element.textContent = utils.formatNumber(Math.round(currentValue));
+
+            if (currentStep < steps) {
+                requestAnimationFrame(animate);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }
+
+    setupIntersectionObserver() {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const video = this.reel.querySelector('video');
+                        if (video && video.paused) {
+                            video.play();
+                        }
+                    } else {
+                        const video = this.reel.querySelector('video');
+                        if (video && !video.paused) {
+                            video.pause();
+                        }
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        observer.observe(this.reel);
+    }
+}
+
+// Enhanced comment system
+class CommentSystem {
+    constructor(reel) {
+        this.reel = reel;
+        this.commentSection = reel.querySelector('.comment-section');
+        this.setupCommentSystem();
+    }
+
+    setupCommentSystem() {
+        this.commentInput = this.commentSection.querySelector('.comment-input');
+        this.commentsList = document.createElement('div');
+        this.commentsList.className = 'comments-list';
+        this.commentSection.appendChild(this.commentsList);
+        
+        // Add emoji picker
+        this.setupEmojiPicker();
+        
+        // Add mention system
+        this.setupMentions();
+        
+        // Add rich text formatting
+        this.setupRichTextFormatting();
+    }
+
+    async handleComment(event) {
+        if (event.key === 'Enter' && !event.shiftKey && this.commentInput.value.trim()) {
+            event.preventDefault();
+            
+            const commentText = this.commentInput.value.trim();
+            
+            try {
+                await this.postComment(commentText);
+                
+                // Update counter
+                const commentsCount = this.reel.querySelector('.comments-count');
+                const currentComments = parseInt(commentsCount.textContent);
+                this.animateCounter(commentsCount, currentComments, 1);
+                
+                // Add comment to list
+                this.addCommentToList(commentText);
+                
+                // Clear input
+                this.commentInput.value = '';
+                
+            } catch (error) {
+                utils.showToast('Failed to post comment', 'error');
+            }
+        }
+    }
+
+    async postComment(text) {
+        // Simulate API call
+        return new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    addCommentToList(text) {
+        const comment = document.createElement('div');
+        comment.className = 'comment';
+        comment.innerHTML = `
+            <div class="comment-avatar"></div>
+            <div class="comment-content">
+                <span class="comment-username">User</span>
+                <span class="comment-text">${this.formatComment(text)}</span>
+                <div class="comment-actions">
+                    <button class="comment-like">Like</button>
+                    <button class="comment-reply">Reply</button>
+                </div>
+            </div>
+        `;
+        
+        // Add with animation
+        comment.style.opacity = '0';
+        comment.style.transform = 'translateY(20px)';
+        this.commentsList.insertBefore(comment, this.commentsList.firstChild);
+        
+        requestAnimationFrame(() => {
+            comment.style.opacity = '1';
+            comment.style.transform = 'translateY(0)';
+        });
+    }
+
+    formatComment(text) {
+        // Convert mentions to links
+        text = text.replace(/@(\w+)/g, '<a href="/user/$1">@$1</a>');
+        
+        // Convert URLs to links
+        text = text.replace(
+            /(https?:\/\/[^\s]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+        
+        // Convert emojis
+        text = this.convertEmojis(text);
+        
+        return text;
+    }
+
+    setupEmojiPicker() {
+        const emojiButton = document.createElement('button');
+        emojiButton.className = 'emoji-picker-button';
+        emojiButton.textContent = '😊';
+        this.commentInput.parentElement.appendChild(emojiButton);
+        
+        // Add emoji picker functionality here
+    }
+
+    setupMentions() {
+        this.commentInput.addEventListener('input', () => {
+            const text = this.commentInput.value;
+            const lastWord = text.split(' ').pop();
+            
+            if (lastWord.startsWith('@')) {
+                this.showMentionsSuggestions(lastWord.slice(1));
+            } else {
+                this.hideMentionsSuggestions();
+            }
+        });
+    }
     </script>
 </body>
 </html>
